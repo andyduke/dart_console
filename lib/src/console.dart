@@ -348,12 +348,14 @@ class Console {
   /// zero-based.
   set cursorPosition(Coordinate? cursor) {
     if (cursor != null) {
+      /*
       if (Platform.isWindows) {
         final winTermlib = _termlib as TermLibWindows;
         winTermlib.setCursorPosition(cursor.col, cursor.row);
       } else {
+      */
         stdout.write(ansiCursorPosition(cursor.row + 1, cursor.col + 1));
-      }
+      //}
     }
   }
 
@@ -544,9 +546,7 @@ class Console {
                 return key;
               }
               escapeSequence.add(String.fromCharCode(charCode));
-              if (escapeSequence[2] != '~') {
-                key.controlChar = ControlCharacter.unknown;
-              } else {
+              if (escapeSequence[2] == '~') {
                 switch (escapeSequence[1]) {
                   case '1':
                     key.controlChar = ControlCharacter.home;
@@ -572,6 +572,33 @@ class Console {
                   default:
                     key.controlChar = ControlCharacter.unknown;
                 }
+              } else if (escapeSequence[2] == ';') {
+                charCode = stdin.readByteSync();
+                if (charCode == -1) {
+                  rawMode = false;
+                  return key;
+                }
+                escapeSequence.add(String.fromCharCode(charCode));
+
+                if (escapeSequence[3] == '5') {
+                  charCode = stdin.readByteSync();
+                  if (charCode == -1) {
+                    rawMode = false;
+                    return key;
+                  }
+                  escapeSequence.add(String.fromCharCode(charCode));
+
+                  switch (escapeSequence[4]) {
+                    case 'C':
+                      key.controlChar = ControlCharacter.wordRight;
+                      break;
+                    case 'D':
+                      key.controlChar = ControlCharacter.wordLeft;
+                      break;
+                  }
+                }
+              } else {
+                key.controlChar = ControlCharacter.unknown;
               }
             } else {
               key.controlChar = ControlCharacter.unknown;
@@ -655,7 +682,10 @@ class Console {
     final screenRow = cursorPosition!.row;
     final screenColOffset = cursorPosition!.col;
 
-    final bufferMaxLength = windowWidth - screenColOffset - 3;
+    final bufferMaxLength = windowWidth - screenColOffset - 1;
+
+    var viewportStart = 0;
+    var viewportEnd = bufferMaxLength;
 
     while (true) {
       final key = readKey();
@@ -747,22 +777,41 @@ class Console {
             break;
         }
       } else {
-        if (buffer.length < bufferMaxLength) {
-          if (index == buffer.length) {
-            buffer += key.char;
-            index++;
-          } else {
-            buffer =
-                buffer.substring(0, index) + key.char + buffer.substring(index);
-            index++;
-          }
+        if (index == buffer.length) {
+          buffer += key.char;
+          index++;
+        } else {
+          buffer =
+              buffer.substring(0, index) + key.char + buffer.substring(index);
+          index++;
         }
       }
 
+      var visibleBuffer = buffer;
+      if (buffer.length > bufferMaxLength) {
+        if (index < viewportStart) {
+          var delta = viewportStart - index;
+          viewportStart -= delta;
+          viewportEnd -= delta;
+        }
+        if (index > viewportEnd) {
+          var delta = index - viewportEnd;
+          viewportStart += delta;
+          viewportEnd += delta;
+        }
+
+        visibleBuffer =
+            buffer.substring(viewportStart.clamp(0, buffer.length - 1), viewportEnd.clamp(0, buffer.length));
+      }
+
+      var visibleIndex = index - viewportStart;
+
+      hideCursor();
       cursorPosition = Coordinate(screenRow, screenColOffset);
       eraseCursorToEnd();
-      write(buffer); // allow for backspace condition
-      cursorPosition = Coordinate(screenRow, screenColOffset + index);
+      write(visibleBuffer); // allow for backspace condition
+      cursorPosition = Coordinate(screenRow, screenColOffset + visibleIndex);
+      showCursor();
 
       if (callback != null) callback(buffer, key);
     }
