@@ -551,6 +551,9 @@ class Console {
                   case '1':
                     key.controlChar = ControlCharacter.home;
                     break;
+                  case '2':
+                    key.controlChar = ControlCharacter.insert;
+                    break;
                   case '3':
                     key.controlChar = ControlCharacter.delete;
                     break;
