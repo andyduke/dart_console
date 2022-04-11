@@ -6,6 +6,7 @@
 /// is able to interpret ANSI escape sequences).
 library dart_console;
 
+export 'src/ansi.dart';
 export 'src/calendar.dart';
 export 'src/console.dart';
 export 'src/enums.dart';

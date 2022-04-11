@@ -699,7 +699,7 @@ class Console {
             if (_scrollbackBuffer != null) {
               _scrollbackBuffer!.add(buffer);
             }
-            writeLine();
+            //writeLine();
             return buffer;
           case ControlCharacter.ctrlC:
             if (cancelOnBreak) return null;
@@ -817,6 +817,14 @@ class Console {
       showCursor();
 
       if (callback != null) callback(buffer, key);
+      /*
+      if (callback != null) {
+        final newBuffer = callback(buffer, key);
+        if (newBuffer != null && newBuffer != buffer) {
+          buffer = newBuffer;
+        }
+      }
+      */
     }
   }
 }
